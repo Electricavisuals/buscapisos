@@ -2,6 +2,7 @@ import requests
 import json
 import os
 import time
+import random
 from bs4 import BeautifulSoup
 import hashlib
 import re
@@ -316,14 +317,19 @@ def check_for_new_ads():
     
     # Enviar missatge de debug al començament
     if DEBUG_MODE:
-        send_debug_message(f"Iniciant cerca en {len(IDEALISTA_URLS) + len(FOTOCASA_URLS)} ciutats (preu ≤{MAX_PRICE}€)")
+        total_cities = len(IDEALISTA_URLS) + len(FOTOCASA_URLS)
+        send_debug_message(f"Iniciant cerca en {total_cities} ciutats (preu ≤{MAX_PRICE}€) - duració aprox. 2-4 minuts")
     
-    # Comprovar Idealista
+    # Comprovar Idealista amb ordre aleatori
     print("🔍 Cercant a Idealista...")
     if DEBUG_MODE:
         send_debug_message("Cercant a Idealista...")
     
-    for source_name, url in IDEALISTA_URLS.items():
+    # Barrejar l'ordre de les ciutats per fer-ho més humà
+    idealista_cities = list(IDEALISTA_URLS.items())
+    random.shuffle(idealista_cities)
+    
+    for source_name, url in idealista_cities:
         ads = get_idealista_ads(url, source_name)
         
         for ad in ads:
@@ -331,12 +337,21 @@ def check_for_new_ads():
                 all_new_ads.append(ad)
                 seen_ads.add(ad['id'])
     
-    # Comprovar Fotocasa
+    # Pausa extra entre Idealista i Fotocasa
+    extra_delay = random.uniform(8, 20)
+    print(f"⏸️ Pausa entre portals: {extra_delay:.1f}s")
+    time.sleep(extra_delay)
+    
+    # Comprovar Fotocasa amb ordre aleatori
     print("🔍 Cercant a Fotocasa...")
     if DEBUG_MODE:
         send_debug_message("Cercant a Fotocasa...")
     
-    for source_name, url in FOTOCASA_URLS.items():
+    # Barrejar l'ordre de les ciutats de Fotocasa també
+    fotocasa_cities = list(FOTOCASA_URLS.items())
+    random.shuffle(fotocasa_cities)
+    
+    for source_name, url in fotocasa_cities:
         ads = get_fotocasa_ads(url, source_name)
         
         for ad in ads:
