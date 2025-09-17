@@ -5,10 +5,15 @@ import time
 from bs4 import BeautifulSoup
 import hashlib
 
-# Configuració
+# Configuració (ara des de variables d'entorn)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-MAX_PRICE = 650
+
+# Preu màxim configurable (per defecte 650€)
+MAX_PRICE = int(os.getenv("MAX_PRICE", "650"))
+
+# Mode test (només mostra informació, no envia missatges)
+TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
 
 # Arxiu per guardar anuncis ja vistos
 SEEN_ADS_FILE = "seen_ads.json"
@@ -70,6 +75,12 @@ def save_seen_ads(seen_ads):
 
 def send_telegram_message(message):
     """Envia un missatge via Telegram"""
+    if TEST_MODE:
+        print("🧪 MODE TEST: Missatge que s'enviaria:")
+        print(message)
+        print("-" * 50)
+        return
+        
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("⚠️  Telegram no configurat, saltant notificació")
         return
@@ -90,7 +101,108 @@ def send_telegram_message(message):
     except Exception as e:
         print(f"❌ Error enviant Telegram: {e}")
 
-def get_idealista_ads(url, source_name):
+def extract_price_from_text(price_text):
+    """Extreu el preu numèric d'un text"""
+    if not price_text:
+        return 0
+    
+    # Buscar números amb €
+    import re
+    numbers = re.findall(r'[\d.,]+', price_text.replace('.', '').replace(',', ''))
+    if numbers:
+        try:
+            return int(numbers[0])
+        except:
+            return 0
+    return 0
+
+def get_fotocasa_ads(url, source_name):
+    """Extreu anuncis de Fotocasa"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    try:
+        print(f"🔍 Buscant a {source_name}...")
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        ads = []
+        
+        # Selectors per Fotocasa (poden necessitar ajustos)
+        articles = soup.select('article.re-SearchResult')
+        if not articles:
+            articles = soup.select('.re-SearchResult-itemRow')
+        if not articles:
+            articles = soup.select('[data-testid="search-result-item"]')
+        
+        for article in articles[:8]:  # Limitem a 8 primers
+            try:
+                # Enllaç
+                link_elem = article.select_one('a[href*="/anuncio/"]')
+                if not link_elem:
+                    link_elem = article.select_one('a')
+                
+                if not link_elem:
+                    continue
+                
+                link = link_elem.get('href', '')
+                if not link.startswith('http'):
+                    link = "https://www.fotocasa.es" + link
+                
+                # Preu
+                price_elem = article.select_one('[data-testid="price"]')
+                if not price_elem:
+                    price_elem = article.select_one('.re-SearchResult-price')
+                if not price_elem:
+                    price_elem = article.select_one('.fc-Price')
+                
+                price_text = price_elem.get_text(strip=True) if price_elem else "No preu"
+                price_value = extract_price_from_text(price_text)
+                
+                # Filtrar per preu màxim
+                if price_value > MAX_PRICE and price_value > 0:
+                    continue
+                
+                # Títol
+                title_elem = article.select_one('[data-testid="property-title"]')
+                if not title_elem:
+                    title_elem = article.select_one('.re-SearchResult-title')
+                if not title_elem:
+                    title_elem = article.select_one('h3')
+                
+                title = title_elem.get_text(strip=True) if title_elem else "Sense títol"
+                
+                # Detalls (habitacions, m², etc.)
+                details_elem = article.select_one('[data-testid="property-features"]')
+                if not details_elem:
+                    details_elem = article.select_one('.re-SearchResult-info')
+                
+                details = details_elem.get_text(strip=True) if details_elem else ""
+                
+                ads.append({
+                    'id': hashlib.md5(link.encode()).hexdigest(),
+                    'title': title,
+                    'price': price_text,
+                    'details': details,
+                    'link': link,
+                    'source': source_name
+                })
+                
+            except Exception as e:
+                print(f"Error processant anunci de Fotocasa: {e}")
+                continue
+        
+        print(f"📊 Trobats {len(ads)} anuncis a {source_name} (≤{MAX_PRICE}€)")
+        return ads
+        
+    except requests.RequestException as e:
+        print(f"❌ Error accedint a {source_name}: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Error inesperat a {source_name}: {e}")
+        return []
     """Extreu anuncis d'Idealista"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -152,13 +264,24 @@ def get_idealista_ads(url, source_name):
         return []
 
 def check_for_new_ads():
-    """Comprova si hi ha nous anuncis"""
+    """Comprova si hi ha nous anuncis a Idealista i Fotocasa"""
     seen_ads = load_seen_ads()
     all_new_ads = []
     
-    # Comprovar cada URL
-    for source_name, url in SEARCH_URLS.items():
+    # Comprovar Idealista
+    print("🔍 Cercant a Idealista...")
+    for source_name, url in IDEALISTA_URLS.items():
         ads = get_idealista_ads(url, source_name)
+        
+        for ad in ads:
+            if ad['id'] not in seen_ads:
+                all_new_ads.append(ad)
+                seen_ads.add(ad['id'])
+    
+    # Comprovar Fotocasa
+    print("🔍 Cercant a Fotocasa...")
+    for source_name, url in FOTOCASA_URLS.items():
+        ads = get_fotocasa_ads(url, source_name)
         
         for ad in ads:
             if ad['id'] not in seen_ads:
@@ -191,9 +314,15 @@ def main():
     """Funció principal"""
     print("🚀 Iniciant cerca de pisos...")
     print(f"💰 Preu màxim: {MAX_PRICE}€")
+    print(f"📍 Cercant en {len(IDEALISTA_URLS)} ciutats a Idealista")
+    print(f"📍 Cercant en {len(FOTOCASA_URLS)} ciutats a Fotocasa")
+    print(f"🔍 Total: {len(IDEALISTA_URLS) + len(FOTOCASA_URLS)} cerques simultànies")
+    
+    if TEST_MODE:
+        print("🧪 MODE TEST ACTIVAT - No s'enviaran missatges")
     
     # Comprovar configuració de Telegram
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    if not TEST_MODE and (not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID):
         print("⚠️  Telegram no configurat! Afegeix TELEGRAM_BOT_TOKEN i TELEGRAM_CHAT_ID als secrets de GitHub")
         return
     
