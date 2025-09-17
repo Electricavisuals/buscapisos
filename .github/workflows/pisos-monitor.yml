@@ -3,7 +3,7 @@ name: Pisos Monitor
 on:
   schedule:
     # Executa cada 5 minuts
-    - cron: '*/5 * * * *'
+    - cron: '*/3 * * * *'
   
   # Permet executar manualment des de la interfície
   workflow_dispatch:
