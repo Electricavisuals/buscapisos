@@ -4,8 +4,8 @@ import os
 import time
 from bs4 import BeautifulSoup
 import hashlib
-#
-#
+import re
+
 # Configuració (ara des de variables d'entorn)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -108,7 +108,6 @@ def extract_price_from_text(price_text):
         return 0
     
     # Buscar números amb €
-    import re
     numbers = re.findall(r'[\d.,]+', price_text.replace('.', '').replace(',', ''))
     if numbers:
         try:
@@ -116,6 +115,67 @@ def extract_price_from_text(price_text):
         except:
             return 0
     return 0
+
+def get_idealista_ads(url, source_name):
+    """Extreu anuncis d'Idealista"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    try:
+        print(f"🔍 Buscant a {source_name}...")
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        ads = []
+        
+        # Selectors per Idealista (pot necessitar ajustos)
+        articles = soup.select('article.item')
+        
+        for article in articles[:5]:  # Limitem a 5 primers
+            try:
+                # Enllaç
+                link_elem = article.select_one('a.item-link')
+                if not link_elem:
+                    continue
+                
+                link = "https://www.idealista.com" + link_elem.get('href', '')
+                
+                # Preu
+                price_elem = article.select_one('.item-price')
+                price = price_elem.get_text(strip=True) if price_elem else "No preu"
+                
+                # Títol/descripció
+                title_elem = article.select_one('.item-title')
+                title = title_elem.get_text(strip=True) if title_elem else "Sense títol"
+                
+                # Detalls
+                details_elem = article.select_one('.item-detail')
+                details = details_elem.get_text(strip=True) if details_elem else ""
+                
+                ads.append({
+                    'id': hashlib.md5(link.encode()).hexdigest(),
+                    'title': title,
+                    'price': price,
+                    'details': details,
+                    'link': link,
+                    'source': source_name
+                })
+                
+            except Exception as e:
+                print(f"Error processant anunci: {e}")
+                continue
+        
+        print(f"📊 Trobats {len(ads)} anuncis a {source_name}")
+        return ads
+        
+    except requests.RequestException as e:
+        print(f"❌ Error accedint a {source_name}: {e}")
+        return []
+    except Exception as e:
+        print(f"❌ Error inesperat a {source_name}: {e}")
+        return []
 
 def get_fotocasa_ads(url, source_name):
     """Extreu anuncis de Fotocasa"""
@@ -196,65 +256,6 @@ def get_fotocasa_ads(url, source_name):
                 continue
         
         print(f"📊 Trobats {len(ads)} anuncis a {source_name} (≤{MAX_PRICE}€)")
-        return ads
-        
-    except requests.RequestException as e:
-        print(f"❌ Error accedint a {source_name}: {e}")
-        return []
-    except Exception as e:
-        print(f"❌ Error inesperat a {source_name}: {e}")
-        return []
-    """Extreu anuncis d'Idealista"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    try:
-        print(f"🔍 Buscant a {source_name}...")
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        ads = []
-        
-        # Selectors per Idealista (pot necessitar ajustos)
-        articles = soup.select('article.item')
-        
-        for article in articles[:5]:  # Limitem a 5 primers
-            try:
-                # Enllaç
-                link_elem = article.select_one('a.item-link')
-                if not link_elem:
-                    continue
-                
-                link = "https://www.idealista.com" + link_elem.get('href', '')
-                
-                # Preu
-                price_elem = article.select_one('.item-price')
-                price = price_elem.get_text(strip=True) if price_elem else "No preu"
-                
-                # Títol/descripció
-                title_elem = article.select_one('.item-title')
-                title = title_elem.get_text(strip=True) if title_elem else "Sense títol"
-                
-                # Detalls
-                details_elem = article.select_one('.item-detail')
-                details = details_elem.get_text(strip=True) if details_elem else ""
-                
-                ads.append({
-                    'id': hashlib.md5(link.encode()).hexdigest(),
-                    'title': title,
-                    'price': price,
-                    'details': details,
-                    'link': link,
-                    'source': source_name
-                })
-                
-            except Exception as e:
-                print(f"Error processant anunci: {e}")
-                continue
-        
-        print(f"📊 Trobats {len(ads)} anuncis a {source_name}")
         return ads
         
     except requests.RequestException as e:
