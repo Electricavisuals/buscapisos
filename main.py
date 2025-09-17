@@ -128,12 +128,22 @@ def extract_price_from_text(price_text):
 def get_idealista_ads(url, source_name):
     """Extreu anuncis d'Idealista"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
     }
     
     try:
         print(f"🔍 Buscant a {source_name}...")
-        response = requests.get(url, headers=headers, timeout=10)
+        
+        # Pausa petita per evitar ser detectat
+        time.sleep(2)
+        
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -179,8 +189,14 @@ def get_idealista_ads(url, source_name):
         print(f"📊 Trobats {len(ads)} anuncis a {source_name}")
         return ads
         
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code in [403, 429, 405]:
+            print(f"🚫 {source_name} ha bloquedat el bot (error {e.response.status_code}) - saltem aquesta cerca")
+        else:
+            print(f"❌ Error HTTP a {source_name}: {e}")
+        return []
     except requests.RequestException as e:
-        print(f"❌ Error accedint a {source_name}: {e}")
+        print(f"❌ Error de connexió a {source_name}: {e}")
         return []
     except Exception as e:
         print(f"❌ Error inesperat a {source_name}: {e}")
@@ -189,12 +205,25 @@ def get_idealista_ads(url, source_name):
 def get_fotocasa_ads(url, source_name):
     """Extreu anuncis de Fotocasa"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,ca;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
     }
     
     try:
         print(f"🔍 Buscant a {source_name}...")
-        response = requests.get(url, headers=headers, timeout=10)
+        
+        # Pausa més llarga per Fotocasa
+        time.sleep(3)
+        
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -267,8 +296,14 @@ def get_fotocasa_ads(url, source_name):
         print(f"📊 Trobats {len(ads)} anuncis a {source_name} (≤{MAX_PRICE}€)")
         return ads
         
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code in [403, 429, 405]:
+            print(f"🚫 {source_name} ha bloquedat el bot (error {e.response.status_code}) - saltem aquesta cerca")
+        else:
+            print(f"❌ Error HTTP a {source_name}: {e}")
+        return []
     except requests.RequestException as e:
-        print(f"❌ Error accedint a {source_name}: {e}")
+        print(f"❌ Error de connexió a {source_name}: {e}")
         return []
     except Exception as e:
         print(f"❌ Error inesperat a {source_name}: {e}")
