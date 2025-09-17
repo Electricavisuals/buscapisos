@@ -16,6 +16,9 @@ MAX_PRICE = int(os.getenv("MAX_PRICE", "650"))
 # Mode test (només mostra informació, no envia missatges)
 TEST_MODE = os.getenv("TEST_MODE", "false").lower() == "true"
 
+# Mode debug (envia missatges de debug a Telegram)
+DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
+
 # Arxiu per guardar anuncis ja vistos
 SEEN_ADS_FILE = "seen_ads.json"
 
@@ -101,6 +104,12 @@ def send_telegram_message(message):
             print(f"❌ Error enviant Telegram: {response.status_code}")
     except Exception as e:
         print(f"❌ Error enviant Telegram: {e}")
+
+def send_debug_message(message):
+    """Envia un missatge de debug si està activat"""
+    if DEBUG_MODE:
+        debug_msg = f"🔍 <b>DEBUG:</b> {message}"
+        send_telegram_message(debug_msg)
 
 def extract_price_from_text(price_text):
     """Extreu el preu numèric d'un text"""
@@ -270,8 +279,15 @@ def check_for_new_ads():
     seen_ads = load_seen_ads()
     all_new_ads = []
     
+    # Enviar missatge de debug al començament
+    if DEBUG_MODE:
+        send_debug_message(f"Iniciant cerca en {len(IDEALISTA_URLS) + len(FOTOCASA_URLS)} ciutats (preu ≤{MAX_PRICE}€)")
+    
     # Comprovar Idealista
     print("🔍 Cercant a Idealista...")
+    if DEBUG_MODE:
+        send_debug_message("Cercant a Idealista...")
+    
     for source_name, url in IDEALISTA_URLS.items():
         ads = get_idealista_ads(url, source_name)
         
@@ -282,6 +298,9 @@ def check_for_new_ads():
     
     # Comprovar Fotocasa
     print("🔍 Cercant a Fotocasa...")
+    if DEBUG_MODE:
+        send_debug_message("Cercant a Fotocasa...")
+    
     for source_name, url in FOTOCASA_URLS.items():
         ads = get_fotocasa_ads(url, source_name)
         
@@ -289,6 +308,13 @@ def check_for_new_ads():
             if ad['id'] not in seen_ads:
                 all_new_ads.append(ad)
                 seen_ads.add(ad['id'])
+    
+    # Missatge de debug final
+    if DEBUG_MODE:
+        if all_new_ads:
+            send_debug_message(f"✅ Cerca finalitzada: {len(all_new_ads)} anuncis nous trobats!")
+        else:
+            send_debug_message("✅ Cerca finalitzada: cap anunci nou")
     
     # Guardar anuncis vistos
     save_seen_ads(seen_ads)
