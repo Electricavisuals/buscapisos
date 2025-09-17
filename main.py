@@ -4,7 +4,8 @@ import os
 import time
 from bs4 import BeautifulSoup
 import hashlib
-
+#
+#
 # Configuració (ara des de variables d'entorn)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
