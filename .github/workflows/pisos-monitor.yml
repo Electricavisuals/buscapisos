@@ -1,0 +1,41 @@
+name: Pisos Monitor
+
+on:
+  schedule:
+    # Executa cada 5 minuts
+    - cron: '*/5 * * * *'
+  
+  # Permet executar manualment des de la interfície
+  workflow_dispatch:
+
+jobs:
+  monitor-pisos:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run pisos monitor
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: python main.py
+    
+    - name: Commit and push seen ads file
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add seen_ads.json
+        git diff --staged --quiet || git commit -m "Update seen ads [skip ci]"
+        git push
