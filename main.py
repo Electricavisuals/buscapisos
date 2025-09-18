@@ -23,23 +23,23 @@ DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
 # Arxiu per guardar anuncis ja vistos
 SEEN_ADS_FILE = "seen_ads.json"
 
-# URLs de cerca - Idealista (amb filtre de preu)
-IDEALISTA_URLS = {
-    "Idealista Terrassa": f"https://www.idealista.com/alquiler-viviendas/terrassa-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Sabadell": f"https://www.idealista.com/alquiler-viviendas/sabadell-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Sant Quirze": f"https://www.idealista.com/alquiler-viviendas/sant-quirze-del-valles-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Matadepera": f"https://www.idealista.com/alquiler-viviendas/matadepera-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Rubí": f"https://www.idealista.com/alquiler-viviendas/rubi-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Castellar": f"https://www.idealista.com/alquiler-viviendas/castellar-del-valles-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Sentmenat": f"https://www.idealista.com/alquiler-viviendas/sentmenat-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Sant Llorenç": f"https://www.idealista.com/alquiler-viviendas/sant-llorenc-savall-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Polinyà": f"https://www.idealista.com/alquiler-viviendas/polinya-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Santa Perpètua": f"https://www.idealista.com/alquiler-viviendas/santa-perpetua-de-mogoda-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Cerdanyola": f"https://www.idealista.com/alquiler-viviendas/cerdanyola-del-valles-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Bellaterra": f"https://www.idealista.com/alquiler-viviendas/cerdanyola-del-valles-barcelona/bellaterra/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Barberà": f"https://www.idealista.com/alquiler-viviendas/barbera-del-valles-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Badia del Vallès": f"https://www.idealista.com/alquiler-viviendas/badia-del-valles-barcelona/con-precio-hasta_{MAX_PRICE}/",
-    "Idealista Ripollet": f"https://www.idealista.com/alquiler-viviendas/ripollet-barcelona/con-precio-hasta_{MAX_PRICE}/",
+# URLs de cerca - Idealista (sense filtre de preu - s'afegirà dinàmicament)
+IDEALISTA_BASE_URLS = {
+    "Idealista Terrassa": "https://www.idealista.com/alquiler-viviendas/terrassa-barcelona/con-precio-hasta_",
+    "Idealista Sabadell": "https://www.idealista.com/alquiler-viviendas/sabadell-barcelona/con-precio-hasta_",
+    "Idealista Sant Quirze": "https://www.idealista.com/alquiler-viviendas/sant-quirze-del-valles-barcelona/con-precio-hasta_",
+    "Idealista Matadepera": "https://www.idealista.com/alquiler-viviendas/matadepera-barcelona/con-precio-hasta_",
+    "Idealista Rubí": "https://www.idealista.com/alquiler-viviendas/rubi-barcelona/con-precio-hasta_",
+    "Idealista Castellar": "https://www.idealista.com/alquiler-viviendas/castellar-del-valles-barcelona/con-precio-hasta_",
+    "Idealista Sentmenat": "https://www.idealista.com/alquiler-viviendas/sentmenat-barcelona/con-precio-hasta_",
+    "Idealista Sant Llorenç": "https://www.idealista.com/alquiler-viviendas/sant-llorenc-savall-barcelona/con-precio-hasta_",
+    "Idealista Polinyà": "https://www.idealista.com/alquiler-viviendas/polinya-barcelona/con-precio-hasta_",
+    "Idealista Santa Perpètua": "https://www.idealista.com/alquiler-viviendas/santa-perpetua-de-mogoda-barcelona/con-precio-hasta_",
+    "Idealista Cerdanyola": "https://www.idealista.com/alquiler-viviendas/cerdanyola-del-valles-barcelona/con-precio-hasta_",
+    "Idealista Bellaterra": "https://www.idealista.com/alquiler-viviendas/cerdanyola-del-valles-barcelona/bellaterra/con-precio-hasta_",
+    "Idealista Barberà": "https://www.idealista.com/alquiler-viviendas/barbera-del-valles-barcelona/con-precio-hasta_",
+    "Idealista Badia del Vallès": "https://www.idealista.com/alquiler-viviendas/badia-del-valles-barcelona/con-precio-hasta_",
+    "Idealista Ripollet": "https://www.idealista.com/alquiler-viviendas/ripollet-barcelona/con-precio-hasta_",
 }
 
 # URLs de cerca - Fotocasa (filtrem per preu després)
@@ -311,53 +311,64 @@ def get_fotocasa_ads(url, source_name):
         return []
 
 def check_for_new_ads():
-    """Comprova si hi ha nous anuncis a Idealista i Fotocasa"""
+    """Comprova si hi ha nous anuncis a Idealista i Fotocasa - duració ~10 minuts"""
     seen_ads = load_seen_ads()
     all_new_ads = []
     
     # Enviar missatge de debug al començament
     if DEBUG_MODE:
-        total_cities = len(IDEALISTA_URLS) + len(FOTOCASA_URLS)
-        send_debug_message(f"Iniciant cerca en {total_cities} ciutats (preu ≤{MAX_PRICE}€) - duració aprox. 2-4 minuts")
+        total_cities = len(IDEALISTA_BASE_URLS) + len(FOTOCASA_URLS)
+        send_debug_message(f"Iniciant cerca en {total_cities} ciutats (preu base {MAX_PRICE}€ ±50€) - duració aprox. 10 minuts")
     
-    # Comprovar Idealista amb ordre aleatori
+    # Comprovar Idealista amb ordre aleatori i pauses extra
     print("🔍 Cercant a Idealista...")
     if DEBUG_MODE:
         send_debug_message("Cercant a Idealista...")
     
-    # Barrejar l'ordre de les ciutats per fer-ho més humà
-    idealista_cities = list(IDEALISTA_URLS.items())
+    # Barrejar l'ordre de les ciutats
+    idealista_cities = list(IDEALISTA_BASE_URLS.items())
     random.shuffle(idealista_cities)
     
-    for source_name, url in idealista_cities:
-        ads = get_idealista_ads(url, source_name)
+    for i, (source_name, base_url) in enumerate(idealista_cities):
+        ads = get_idealista_ads(base_url, source_name)
         
         for ad in ads:
             if ad['id'] not in seen_ads:
                 all_new_ads.append(ad)
                 seen_ads.add(ad['id'])
+        
+        # Pausa extra cada 3 cerques per semblar més humà
+        if i > 0 and i % 3 == 0:
+            extra_break = random.uniform(20, 45)
+            print(f"☕ Descans de {extra_break:.1f}s després de {i+1} cerques...")
+            time.sleep(extra_break)
     
-    # Pausa extra entre Idealista i Fotocasa
-    extra_delay = random.uniform(8, 20)
-    print(f"⏸️ Pausa entre portals: {extra_delay:.1f}s")
-    time.sleep(extra_delay)
+    # Pausa llarga entre Idealista i Fotocasa
+    between_portals = random.uniform(30, 60)
+    print(f"⏸️ Pausa llarga entre portals: {between_portals:.1f}s")
+    time.sleep(between_portals)
     
     # Comprovar Fotocasa amb ordre aleatori
     print("🔍 Cercant a Fotocasa...")
     if DEBUG_MODE:
         send_debug_message("Cercant a Fotocasa...")
     
-    # Barrejar l'ordre de les ciutats de Fotocasa també
     fotocasa_cities = list(FOTOCASA_URLS.items())
     random.shuffle(fotocasa_cities)
     
-    for source_name, url in fotocasa_cities:
+    for i, (source_name, url) in enumerate(fotocasa_cities):
         ads = get_fotocasa_ads(url, source_name)
         
         for ad in ads:
             if ad['id'] not in seen_ads:
                 all_new_ads.append(ad)
                 seen_ads.add(ad['id'])
+        
+        # Pauses extra cada 2 cerques per Fotocasa (més estricte)
+        if i > 0 and i % 2 == 0:
+            extra_break = random.uniform(25, 50)
+            print(f"☕ Descans de {extra_break:.1f}s després de {i+1} cerques a Fotocasa...")
+            time.sleep(extra_break)
     
     # Missatge de debug final
     if DEBUG_MODE:
