@@ -403,9 +403,9 @@ def main():
     """Funció principal"""
     print("🚀 Iniciant cerca de pisos...")
     print(f"💰 Preu màxim: {MAX_PRICE}€")
-    print(f"📍 Cercant en {len(IDEALISTA_URLS)} ciutats a Idealista")
+    print(f"📍 Cercant en {len(IDEALISTA_BASE_URLS)} ciutats a Idealista")
     print(f"📍 Cercant en {len(FOTOCASA_URLS)} ciutats a Fotocasa")
-    print(f"🔍 Total: {len(IDEALISTA_URLS) + len(FOTOCASA_URLS)} cerques simultànies")
+    print(f"🔍 Total: {len(IDEALISTA_BASE_URLS) + len(FOTOCASA_URLS)} cerques simultànies")
     
     if TEST_MODE:
         print("🧪 MODE TEST ACTIVAT - No s'enviaran missatges")
